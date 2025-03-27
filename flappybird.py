@@ -1,36 +1,47 @@
-#! /usr/bin/env python3
-
-"""Flappy Bird, implemented using Pygame."""
+#!/usr/bin/env python3
+#
+# Flappy Bird Machine Learning Demonstration
 
 import math
 import os
-import random
 from random import randint
 from collections import deque
 from copy import deepcopy
-import cPickle as pickle
+import pickle
 import os.path
 import pygame
-from pygame.locals import *
+from pygame.locals import (
+    QUIT,
+    KEYUP,
+    SRCALPHA,
+    K_ESCAPE,
+    K_PAUSE,
+    K_p,
+    Rect,
+)
 
 FPS = 60
 ANIMATION_SPEED = 0.18  # pixels per millisecond
-WIN_WIDTH = 284 * 2     # BG image size: 284x512 px; tiled twice
+WIN_WIDTH = 284 * 2  # BG image size: 284x512 px; tiled twice
 WIN_HEIGHT = 512
 discount = 1
 fileexists = os.path.isfile("save.p")
 if fileexists:
     with open("save.p", "rb") as f:
         Q, a, pastrounds = pickle.load(f)
-    print "File loaded!"
+    print("File loaded!")
 else:
     Q = [[0 for r in range(2)] for y in range(500)]
     a = [[0 for i in range(2)] for x in range(500)]
     pastrounds = 0
+
+
 def stategen(bird, pp, isdead):
-    return (int((WIN_HEIGHT - abs(bird.y) - pp.bottom_height_px)/5.0) + 100, isdead)
+    return (int((WIN_HEIGHT - abs(bird.y) - pp.bottom_height_px) / 5.0) + 100, isdead)
+
+
 def orthQ(sprime, s, ts):
-    #the necessary values for finding Q[s, a]
+    """My chosen Q-learning algorithm. The necessary values for finding Q[s, a]."""
     global lastaction
     schoice = deepcopy(lastaction)
     hght = s[0]
@@ -39,19 +50,21 @@ def orthQ(sprime, s, ts):
     if ts > 10:
         alpha = 0
     else:
-        alpha = float(1)/(a[hght][schoice])
+        alpha = float(1) / (a[hght][schoice])
     deceased = sprime[1]
     if deceased is True:
-        rwd = -1000
+        reward = -1000
     else:
-        rwd = 1
-    #the necessary values for finding Q[s', a']
+        reward = 1
+    # the necessary values for finding Q[s', a']
     phght = sprime[0]
     if Q[phght][1] > Q[phght][0]:
         pquest = deepcopy(Q[phght][1])
     else:
         pquest = deepcopy(Q[phght][0])
-    Q[hght][schoice] = quest + alpha*(rwd + (discount*pquest) - quest)
+    Q[hght][schoice] = quest + alpha * (reward + (discount * pquest) - quest)
+
+
 def actionchooser(state, explore):
     global chosen
     h = state[0]
@@ -62,20 +75,25 @@ def actionchooser(state, explore):
             chosen = 1
         else:
             chosen = 0
+
+
 def randoactionchooser():
     global chosen
-    if randint(0, 10) is 1:
+    if randint(0, 10) == 1:
         chosen = 1
     else:
         chosen = 0
+
+
 def takeaction(bird):
     global chosen
     global lastaction
-    if chosen is 1:
+    if chosen == 1:
         bird.msec_to_climb = Bird.CLIMB_DURATION
         lastaction = 1
     else:
         lastaction = 0
+
 
 class Bird(pygame.sprite.Sprite):
     """Represents the bird controlled by the player.
@@ -147,9 +165,12 @@ class Bird(pygame.sprite.Sprite):
             last called.
         """
         if self.msec_to_climb > 0:
-            frac_climb_done = 1 - self.msec_to_climb/Bird.CLIMB_DURATION
-            self.y -= (Bird.CLIMB_SPEED * frames_to_msec(delta_frames) *
-                       (1 - math.cos(frac_climb_done * math.pi)))
+            frac_climb_done = 1 - self.msec_to_climb / Bird.CLIMB_DURATION
+            self.y -= (
+                Bird.CLIMB_SPEED
+                * frames_to_msec(delta_frames)
+                * (1 - math.cos(frac_climb_done * math.pi))
+            )
             self.msec_to_climb -= frames_to_msec(delta_frames)
             isclimbing = True
         else:
@@ -235,20 +256,22 @@ class PipePair(pygame.sprite.Sprite):
         self.score_counted = False
 
         self.image = pygame.Surface((PipePair.WIDTH, WIN_HEIGHT), SRCALPHA)
-        self.image.convert()   # speeds up blitting
+        self.image.convert()  # speeds up blitting
         self.image.fill((0, 0, 0, 0))
         total_pipe_body_pieces = int(
-            (WIN_HEIGHT -                  # fill window from top to bottom
-             3 * Bird.HEIGHT -             # make room for bird to fit through
-             3 * PipePair.PIECE_HEIGHT) /  # 2 end pieces + 1 body piece
-            PipePair.PIECE_HEIGHT          # to get number of pipe pieces
+            (
+                WIN_HEIGHT  # fill window from top to bottom
+                - 3 * Bird.HEIGHT  # make room for bird to fit through
+                - 3 * PipePair.PIECE_HEIGHT
+            )  # 2 end pieces + 1 body piece
+            / PipePair.PIECE_HEIGHT  # to get number of pipe pieces
         )
         self.bottom_pieces = randint(1, total_pipe_body_pieces)
         self.top_pieces = total_pipe_body_pieces - self.bottom_pieces
 
         # bottom pipe
         for i in range(1, self.bottom_pieces + 1):
-            piece_pos = (0, WIN_HEIGHT - i*PipePair.PIECE_HEIGHT)
+            piece_pos = (0, WIN_HEIGHT - i * PipePair.PIECE_HEIGHT)
             self.image.blit(pipe_body_img, piece_pos)
         bottom_pipe_end_y = WIN_HEIGHT - self.bottom_height_px
         bottom_end_piece_pos = (0, bottom_pipe_end_y - PipePair.PIECE_HEIGHT)
@@ -332,18 +355,20 @@ def load_images():
         img_file_name: The file name (including its extension, e.g.
             '.png') of the required image, without a file path.
         """
-        file_name = os.path.join('.', 'images', img_file_name)
+        file_name = os.path.join(".", "images", img_file_name)
         img = pygame.image.load(file_name)
         img.convert()
         return img
 
-    return {'background': load_image('background.png'),
-            'pipe-end': load_image('pipe_end.png'),
-            'pipe-body': load_image('pipe_body.png'),
-            # images for animating the flapping bird -- animated GIFs are
-            # not supported in pygame
-            'bird-wingup': load_image('bird_wing_up.png'),
-            'bird-wingdown': load_image('bird_wing_down.png')}
+    return {
+        "background": load_image("background.png"),
+        "pipe-end": load_image("pipe_end.png"),
+        "pipe-body": load_image("pipe_body.png"),
+        # images for animating the flapping bird -- animated GIFs are
+        # not supported in pygame
+        "bird-wingup": load_image("bird_wing_up.png"),
+        "bird-wingdown": load_image("bird_wing_down.png"),
+    }
 
 
 def frames_to_msec(frames, fps=FPS):
@@ -365,8 +390,11 @@ def msec_to_frames(milliseconds, fps=FPS):
     """
     return fps * milliseconds / 1000.0
 
+
 def sendresults(score, clock):
     return score, clock
+
+
 def main():
     """The application's entry point.
 
@@ -376,7 +404,7 @@ def main():
     pygame.init()
 
     display_surface = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
-    pygame.display.set_caption('Pygame Flappy Bird')
+    pygame.display.set_caption("Pygame Flappy Bird")
 
     clock = pygame.time.Clock()
     score_font = pygame.font.SysFont(None, 32, bold=True)  # default font
@@ -385,12 +413,16 @@ def main():
     topscore = 0
     global isclimbing
     rounds = pastrounds
-    #launch auto player
+    # launch auto player
     while not exit:
-    # the bird stays in the same x position, so bird.x is a constant
-    # center bird on screen
-        bird = Bird(50, int(WIN_HEIGHT/2 - Bird.HEIGHT/2), 2,
-                    (images['bird-wingup'], images['bird-wingdown']))
+        # the bird stays in the same x position, so bird.x is a constant
+        # center bird on screen
+        bird = Bird(
+            50,
+            int(WIN_HEIGHT / 2 - Bird.HEIGHT / 2),
+            2,
+            (images["bird-wingup"], images["bird-wingdown"]),
+        )
 
         pipes = deque()
 
@@ -403,13 +435,12 @@ def main():
         prevstate = None
         global lastaction
         lastaction = None
-        runs = 0
         while not done:
             clock.tick(FPS)
             # Handle this 'manually'.  If we used pygame.time.set_timer(),
             # pipe addition would be messed up when paused.
             if not (paused or frame_clock % msec_to_frames(PipePair.ADD_INTERVAL)):
-                pp = PipePair(images['pipe-end'], images['pipe-body'])
+                pp = PipePair(images["pipe-end"], images["pipe-body"])
                 pipes.append(pp)
 
             for e in pygame.event.get():
@@ -419,10 +450,6 @@ def main():
                     break
                 elif e.type == KEYUP and e.key in (K_PAUSE, K_p):
                     paused = not paused
-                # elif e.type == MOUSEBUTTONUP or (e.type == KEYUP and
-                #         e.key in (K_UP, K_RETURN, K_SPACE)):
-                #     bird.msec_to_climb = Bird.CLIMB_DURATION
-
             if paused:
                 continue  # don't draw anything
 
@@ -432,7 +459,7 @@ def main():
                 done = True
                 isdead = True
             for x in (0, WIN_WIDTH / 2):
-                display_surface.blit(images['background'], (x, 0))
+                display_surface.blit(images["background"], (x, 0))
 
             while pipes and not pipes[0].visible:
                 pipes.popleft()
@@ -451,7 +478,7 @@ def main():
                     p.score_counted = True
 
             score_surface = score_font.render(str(score), True, (255, 255, 255))
-            score_x = WIN_WIDTH/2 - score_surface.get_width()/2
+            score_x = WIN_WIDTH / 2 - score_surface.get_width() / 2
             display_surface.blit(score_surface, (score_x, PipePair.PIECE_HEIGHT))
             pygame.display.flip()
             if not isclimbing:
@@ -472,12 +499,12 @@ def main():
         if score > topscore:
             topscore = deepcopy(score)
         rounds += 1
-        print('Game over! Score: %i' % score + ' Top Score: %i' % topscore + ' Rounds: %i' % rounds)
+        print(f"Game over! Score: {score} Top Score: {topscore} Rounds: {rounds}")
     pygame.quit()
-    with open('save.p', 'wb') as f:
-        pickle.dump((Q , a, rounds), f)
-    print "Progress saved!"
-if __name__ == '__main__':
-    # If this module had been imported, __name__ would be 'flappybird'.
-    # It was executed (e.g. by double-clicking the file), so call main.
+    with open("save.p", "wb") as f:
+        pickle.dump((Q, a, rounds), f, protocol=pickle.HIGHEST_PROTOCOL)
+        print("Progress saved!")
+
+
+if __name__ == "__main__":
     main()
